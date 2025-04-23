@@ -1,0 +1,435 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFU Instagram Reel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .reel-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            color: white;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .intro {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #0a0015;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        
+        .intro.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .intro-silhouette {
+            width: 25px;
+            height: 70px;
+            position: absolute;
+            background: transparent;
+            border: 2px solid #ff00ff;
+            border-radius: 8px;
+            box-shadow: 0 0 15px #ff00ff;
+            animation: runSilhouette 2.5s ease forwards;
+        }
+        
+        .intro-logo {
+            font-size: 5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff00ff, #00f0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            opacity: 0;
+            animation: revealLogo 0.8s ease 0.8s forwards;
+        }
+        
+        .intro-icon {
+            position: absolute;
+            font-size: 2rem;
+            opacity: 0;
+            text-shadow: 0 0 10px #00f0ff;
+        }
+        
+        .background-waves {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            padding: 10%;
+            box-sizing: border-box;
+            border: 2px solid transparent;
+            animation: glowBorder 1.5s infinite alternate;
+        }
+        
+        .slide.active {
+            opacity: 1;
+            transform: scale(1);
+            animation: glitch 0.5s ease;
+        }
+        
+        .logo {
+            font-size: 5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #ff00ff, #00f0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: pulseLogo 2s infinite;
+            position: relative;
+        }
+        
+        .logo::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: radial-gradient(circle, rgba(255, 0, 255, 0.3), transparent);
+            opacity: 0;
+            animation: sparkle 3s infinite;
+        }
+        
+        .headline {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            max-width: 90%;
+            opacity: 0;
+            text-shadow: 0 0 8px #ff00ff;
+        }
+        
+        .benefit {
+            font-size: 2.2rem;
+            margin: 8px 0;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .cta {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-top: 20px;
+            background: linear-gradient(45deg, #ff00ff, #00f0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            opacity: 0;
+            animation: pulseCTA 1.2s infinite;
+        }
+        
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            background: linear-gradient(45deg, #ff00ff, #00f0ff);
+            mix-blend-mode: screen;
+        }
+        
+        .pause-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #ff00ff, #00f0ff);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-family: 'Orbitron', sans-serif;
+            transition: transform 0.3s ease;
+        }
+        
+        .pause-btn.paused {
+            background: #ff4444;
+        }
+        
+        .pause-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        @keyframes runSilhouette {
+            0% { left: -10%; top: 50%; transform: translateY(-50%); opacity: 0; }
+            40% { left: 45%; opacity: 1; }
+            80% { left: 55%; top: 55%; }
+            100% { left: 50%; top: 30%; transform: scale(0) rotate(720deg); opacity: 0; }
+        }
+        
+        @keyframes revealLogo {
+            0% { opacity: 0; transform: translateY(40px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes popIcon {
+            0% { opacity: 0; transform: scale(0); }
+            80% { opacity: 1; transform: scale(1.3); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes pulseLogo {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes pulseCTA {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes glowBorder {
+            0% { border-color: rgba(255, 0, 255, 0.4); box-shadow: 0 0 12px rgba(255, 0, 255, 0.4); }
+            100% { border-color: rgba(0, 240, 255, 0.4); box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
+        }
+        
+        @keyframes sparkle {
+            0% { opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { opacity: 0; }
+        }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -2px); }
+            60% { transform: translate(-2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            60% { opacity: 1; transform: translateY(-5px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0); opacity: 0.3; }
+            50% { opacity: 0.6; }
+            100% { transform: translate(${Math.random() * 80 - 40}px, ${Math.random() * 80 - 40}px); opacity: 0; }
+        }
+        
+        @keyframes typeWriter {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="reel-container" role="region" aria-live="polite">
+        <!-- Intro Animation -->
+        <div class="intro">
+            <div class="intro-silhouette"></div>
+            <div class="intro-logo">AFU</div>
+            <div class="intro-icons">
+                <div class="intro-icon" style="top: 25%; left: 25%; animation: popIcon 0.5s ease 1.2s forwards;">🖌️</div>
+                <div class="intro-icon" style="top: 25%; right: 25%; animation: popIcon 0.5s ease 1.4s forwards;">🎬</div>
+                <div class="intro-icon" style="bottom: 25%; left: 50%; animation: popIcon 0.5s ease 1.6s forwards;">🌐</div>
+                <div class="intro-icon" style="bottom: 25%; right: 25%; animation: popIcon 0.5s ease 1.8s forwards;">📱</div>
+            </div>
+        </div>
+        
+        <!-- Background Waves -->
+        <svg class="background-waves" preserveAspectRatio="none" viewBox="0 0 1440 320">
+            <path fill="url(#waveGradient)" fill-opacity="0.4" d="M0,224L48,213.3C96,203,192,181,288,176C384,171,480,181,576,192C672,203,768,213,864,213.3C960,213,1056,203,1152,197.3C1248,192,1344,192,1392,192L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z">
+                <animate attributeName="d" dur="6s" repeatCount="indefinite" values="
+                    M0,224L48,213.3C96,203,192,181,288,176C384,171,480,181,576,192C672,203,768,213,864,213.3C960,213,1056,203,1152,197.3C1248,192,1344,192,1392,192L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z;
+                    M0,192L48,181.3C96,171,192,149,288,144C384,139,480,149,576,160C672,171,768,181,864,181.3C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z;
+                    M0,224L48,213.3C96,203,192,181,288,176C384,171,480,181,576,192C672,203,768,213,864,213.3C960,213,1056,203,1152,197.3C1248,192,1344,192,1392,192L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"/>
+            </path>
+            <defs>
+                <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#ff00ff;stop-opacity:0.6"/>
+                    <stop offset="50%" style="stop-color:#00f0ff;stop-opacity:0.6"/>
+                    <stop offset="100%" style="stop-color:#ff00ff;stop-opacity:0.6"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        
+        <!-- Slide 1: Intro -->
+        <div class="slide active" id="slide1">
+            <div class="logo">AFU</div>
+            <div class="headline">ALL FOR YOU</div>
+            <div class="headline">Your Ultimate Creative Solution</div>
+        </div>
+        
+        <!-- Slide 2: Problem -->
+        <div class="slide" id="slide2">
+            <div class="headline">Struggling with Freelancers?</div>
+            <div class="benefit">❌ Inconsistent Branding</div>
+            <div class="benefit">❌ Communication Chaos</div>
+            <div class="benefit">❌ Delayed Deadlines</div>
+        </div>
+        
+        <!-- Slide 3: Solution -->
+        <div class="slide" id="slide3">
+            <div class="logo">AFU</div>
+            <div class="headline">One Team, All Solutions:</div>
+            <div class="benefit">🎨 Stunning Design</div>
+            <div class="benefit">🎥 Pro Video Editing</div>
+            <div class="benefit">🌐 Custom Websites</div>
+            <div class="benefit">📢 Social Media Mastery</div>
+        </div>
+        
+        <!-- Slide 4: CTA -->
+        <div class="slide" id="slide4">
+            <div class="headline">Ready to Elevate Your Brand?</div>
+            <div class="cta">Create Your Legacy Now!</div>
+        </div>
+        
+        <!-- Particles -->
+        <div id="particles"></div>
+        
+        <!-- Pause Button -->
+        <button class="pause-btn" aria-label="Pause reel">Pause</button>
+    </div>
+
+    <script>
+        // Intro animation
+        const intro = document.querySelector('.intro');
+        setTimeout(() => {
+            intro.classList.add('hidden');
+            showSlide(0);
+        }, 4000);
+        
+        // Slide transitions
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+        let isPaused = false;
+        let slideInterval;
+        
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[index].classList.add('active');
+            
+            // Animate headlines with typewriter and bounce
+            const headlines = slides[index].querySelectorAll('.headline');
+            headlines.forEach((headline, i) => {
+                headline.style.overflow = 'hidden';
+                headline.style.whiteSpace = 'nowrap';
+                headline.style.animation = `typeWriter ${headline.textContent.length * 0.05}s steps(${headline.textContent.length}) ${i * 100}ms forwards, bounceIn 0.5s ease ${i * 100}ms forwards`;
+                setTimeout(() => {
+                    headline.style.opacity = 1;
+                }, i * 100);
+            });
+            
+            // Animate benefits
+            const benefits = slides[index].querySelectorAll('.benefit');
+            benefits.forEach((benefit, i) => {
+                setTimeout(() => {
+                    benefit.style.opacity = 1;
+                    benefit.style.transform = 'translateY(0)';
+                    benefit.style.animation = 'bounceIn 0.5s ease forwards';
+                }, (headlines.length * 100) + (i * 150));
+            });
+            
+            // Animate CTA
+            const cta = slides[index].querySelector('.cta');
+            if (cta) {
+                setTimeout(() => {
+                    cta.style.opacity = 1;
+                }, (headlines.length * 100) + (benefits.length * 150) + 150);
+            }
+        }
+        
+        function nextSlide() {
+            if (!isPaused) {
+                currentSlide = (currentSlide + 1) % slides.length;
+                showSlide(currentSlide);
+            }
+        }
+        
+        // Start slides after intro
+        setTimeout(() => {
+            slideInterval = setInterval(nextSlide, 3500);
+        }, 4000);
+        
+        // Pause/Play toggle
+        const pauseBtn = document.querySelector('.pause-btn');
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? 'Play' : 'Pause';
+            pauseBtn.classList.toggle('paused', isPaused);
+            if (!isPaused) {
+                slideInterval = setInterval(nextSlide, 3500);
+            } else {
+                clearInterval(slideInterval);
+            }
+        });
+        
+        // Tap to skip
+        document.querySelector('.reel-container').addEventListener('click', (e) => {
+            if (e.target !== pauseBtn && !intro.classList.contains('hidden')) {
+                intro.classList.add('hidden');
+                showSlide(0);
+                slideInterval = setInterval(nextSlide, 3500);
+            } else if (e.target !== pauseBtn) {
+                nextSlide();
+            }
+        });
+        
+        // Create particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 25; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.top = `${Math.random() * 100}%`;
+            const size = 3 + Math.random() * 7;
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.opacity = Math.random() * 0.4;
+            particle.style.animation = `float ${5 + Math.random() * 7}s linear infinite`;
+            particle.style.animationDelay = `${Math.random() * 4}s`;
+            particlesContainer.appendChild(particle);
+        }
+        
+        // Simulate sound effect
+        console.log('Sound effect: Chime for intro, soft click for slide transitions');
+    </script>
+</body>
+</html>
