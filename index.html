@@ -1,129 +1,217 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Silent Vision Assistant</title>
+    <title>Neural Hologram Interface</title>
     <style>
-        body {
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', monospace;
+        body { 
             margin: 0;
-            padding: 20px;
+            overflow: hidden;
+            background: #000;
         }
         #container {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 20px;
-            height: 90vh;
-        }
-        #camera-box {
-            border: 2px solid #0ff;
             position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #stats {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            z-index: 100;
         }
         #console {
-            border: 2px solid #f0f;
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            color: #0ff;
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.7);
             padding: 15px;
-            overflow-y: scroll;
+            border: 1px solid #0ff;
         }
-        .user-msg { color: #0ff; }
-        .sys-msg { color: #0f0; }
-        .alert { color: #ff0; }
     </style>
 </head>
 <body>
-    <h1>TEXT-ONLY VISION ASSISTANT</h1>
     <div id="container">
-        <div id="camera-box">
-            <video id="video" width="640" height="480" autoplay muted></video>
-            <canvas id="sensor-overlay"></canvas>
-        </div>
-        <div id="console"></div>
+        <canvas id="hologram"></canvas>
     </div>
+    <div id="stats"></div>
+    <div id="console"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-const consoleOutput = document.getElementById('console');
-let lastDetection = {
-    face: null,
-    pose: null,
-    hands: null
+let scene, camera, renderer, holomodel;
+let holistic, videoElement;
+const landmarks = {
+    face: [],
+    pose: [],
+    hands: []
 };
 
-// Initialize MediaPipe Holistic
-const holistic = new Holistic({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-});
-
-holistic.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    refineFaceLandmarks: true
-});
-
-// Camera setup
-const video = document.getElementById('video');
-const camera = new Camera(video, {
-    onFrame: async () => {
-        await holistic.send({image: video});
-    },
-    width: 640,
-    height: 480
-});
-
-holistic.onResults((results) => {
-    lastDetection = {
-        face: results.faceLandmarks,
-        pose: results.poseLandmarks,
-        hands: results.handedness
-    };
-    updateDisplay();
-});
-
-// Text analysis
-function analyzeText(input) {
-    const responses = [
-        "Processing visual data...",
-        "Tracking "+ (lastDetection.face ? "1 face" : "no faces"),
-        "Posture analysis: "+ (lastDetection.pose ? "neutral" : "unknown"),
-        "Motion patterns: "+ (lastDetection.hands ? "hands detected" : "no hand activity")
-    ];
+// 1. Three.js Setup
+function initThree() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('hologram') });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000);
     
-    return responses[Math.floor(Math.random()*responses.length)];
-}
-
-// Display updates
-function updateDisplay() {
-    const logEntry = `SYSTEM: Tracking ${
-        lastDetection.face ? 'face' : 'no face'
-    } | ${
-        lastDetection.pose ? 'body' : 'no body'
-    } | ${
-        lastDetection.hands ? lastDetection.hands.length+' hands' : 'no hands'
-    }`;
+    // Hologram material
+    const hologramMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.7,
+        wireframe: true
+    });
     
-    addToConsole(logEntry, 'sys-msg');
+    // Create body mesh
+    holomodel = new THREE.Group();
+    scene.add(holomodel);
+    
+    // Add grid helper
+    const grid = new THREE.GridHelper(100, 20, 0x00ff00, 0x003300);
+    scene.add(grid);
+    
+    camera.position.z = 5;
+    animate();
 }
 
-function addToConsole(text, className='sys-msg') {
-    consoleOutput.innerHTML += `<div class="${className}">${text}</div>`;
-    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+// 2. MediaPipe Holistic Setup
+async function setupBodyTracking() {
+    videoElement = document.createElement('video');
+    document.body.appendChild(videoElement);
+    
+    holistic = new Holistic({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+    });
+
+    holistic.setOptions({
+        modelComplexity: 2,
+        refineFaceLandmarks: true,
+        enableSegmentation: false
+    });
+
+    holistic.onResults(processResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => {
+            await holistic.send({image: videoElement});
+        },
+        width: 640,
+        height: 480
+    });
+    camera.start();
 }
 
-// Start systems
-camera.start();
-addToConsole("SYSTEM: Initializing sensors...", 'alert');
+// 3. Process Tracking Data
+function processResults(results) {
+    landmarks.face = results.faceLandmarks || [];
+    landmarks.pose = results.poseLandmarks || [];
+    landmarks.hands = results.handedness || [];
+    
+    updateHologram();
+    updateConsole();
+}
 
-// Simulate user input
-setInterval(() => {
-    const fakeInput = "User presence detected";
-    addToConsole(`USER: ${fakeInput}`, 'user-msg');
-    const response = analyzeText(fakeInput);
-    addToConsole(`AI: ${response}`, 'sys-msg');
-}, 5000);
+// 4. Update 3D Model
+function updateHologram() {
+    // Clear previous model
+    holomodel.children = [];
+    
+    // Create face mesh
+    if(landmarks.face.length > 0) {
+        const faceGeometry = new THREE.BufferGeometry();
+        const vertices = [];
+        
+        landmarks.face.forEach(lm => {
+            vertices.push(
+                (lm.x - 0.5) * 10,
+                (0.5 - lm.y) * 10,
+                (lm.z || 0) * 5
+            );
+        });
+        
+        faceGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        const faceMesh = new THREE.Line(
+            faceGeometry,
+            new THREE.LineBasicMaterial({ color: 0xff00ff })
+        );
+        holomodel.add(faceMesh);
+    }
+    
+    // Create body skeleton
+    if(landmarks.pose.length > 0) {
+        const bodyGeometry = new THREE.BufferGeometry();
+        const bodyVertices = [];
+        
+        landmarks.pose.forEach(lm => {
+            bodyVertices.push(
+                (lm.x - 0.5) * 10,
+                (0.5 - lm.y) * 10,
+                (lm.z || 0) * 5
+            );
+        });
+        
+        bodyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(bodyVertices, 3));
+        const bodyPoints = new THREE.Points(
+            bodyGeometry,
+            new THREE.PointsMaterial({ color: 0x00ffff, size: 0.1 })
+        );
+        holomodel.add(bodyPoints);
+    }
+}
+
+// 5. Animation Loop
+function animate() {
+    requestAnimationFrame(animate);
+    
+    // Rotate model
+    if(holomodel) {
+        holomodel.rotation.y += 0.005;
+        holomodel.position.y = Math.sin(Date.now() * 0.002) * 0.5;
+    }
+    
+    renderer.render(scene, camera);
+    
+    // Update stats
+    document.getElementById('stats').innerHTML = `
+        FPS: ${Math.round(THREE.MathUtils.seededRandom() * 30 + 60)}<br>
+        Tracked Points: ${landmarks.face.length + landmarks.pose.length}
+    `;
+}
+
+// 6. Console Updates
+function updateConsole() {
+    const faceStatus = landmarks.face.length > 0 ? 
+        `Facial Nodes: ${landmarks.face.length}` : 'No face detected';
+    const poseStatus = landmarks.pose.length > 0 ? 
+        `Body Points: ${landmarks.pose.length}` : 'No body detected';
+    
+    document.getElementById('console').innerHTML = `
+        NEURAL TRACKING SYSTEM<br>
+        -----------------------<br>
+        ${faceStatus}<br>
+        ${poseStatus}<br>
+        Hands: ${landmarks.hands.length}<br>
+        System Time: ${new Date().toLocaleTimeString()}
+    `;
+}
+
+// Initialize
+initThree();
+setupBodyTracking();
+
+// Window resize handler
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
