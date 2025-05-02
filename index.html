@@ -1,475 +1,117 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AFU – All For You Showcase Animation</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <style>
-    /* Animated gradient background */
-    .animated-bg {
-      background: linear-gradient(45deg, #3b0764, #6b21a8, #d946ef, #3b0764);
-      background-size: 400%;
-      animation: gradientShift 10s ease infinite;
-    }
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 400% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    /* Glowing effect */
-    .glow {
-      box-shadow: 0 0 10px rgba(217, 70, 239, 0.8), 0 0 20px rgba(217, 70, 239, 0.5);
-      transition: all 0.3s ease;
-    }
-    .glow:hover {
-      box-shadow: 0 0 15px rgba(217, 70, 239, 1), 0 0 30px rgba(217, 70, 239, 0.7);
-    }
-    /* Flaming effect (optimized for clarity) */
-    .flame-effect {
-      filter: url(#fire);
-      animation: flicker 0.2s infinite;
-    }
-    @keyframes flicker {
-      0% { filter: url(#fire) brightness(1); }
-      50% { filter: url(#fire) brightness(1.15); }
-      100% { filter: url(#fire) brightness(1); }
-    }
-    /* Slide-up animation */
-    .animate-slide-up {
-      animation: slideUp 1s ease-out forwards;
-    }
-    @keyframes slideUp {
-      from { transform: translateY(50px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    /* Particle canvas */
-    #particles {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      opacity: 0.6;
-    }
-    /* Professional font and crisp text */
-    body {
-      font-family: 'Inter', sans-serif;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-    }
-    h1, h2, h3, p {
-      text-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-    }
-    /* Full-screen showcase */
-    #showcase {
-      height: 100vh;
-      overflow: hidden;
-      position: relative;
-    }
-    /* Airplane animation container */
-    #airplane-container {
-      position: absolute;
-      top: 10%;
-      left: -250px;
-      z-index: 10;
-      pointer-events: none;
-    }
-    /* Section styling */
-    section {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-  </style>
+    <title>Futuristic Bot</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #0f0;
+            text-align: center;
+            padding: 20px;
+        }
+        #camera {
+            width: 320px;
+            height: 240px;
+            border: 2px solid #0f0;
+            margin: 10px auto;
+        }
+        #output {
+            height: 100px;
+            border: 1px solid #0f0;
+            padding: 10px;
+            margin: 10px auto;
+            width: 80%;
+            overflow-y: scroll;
+        }
+        button {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans transition-all duration-1000" id="main-body">
-  <!-- SVG Filter for Flaming Effect (Optimized) -->
-  <svg style="position: absolute; width: 0; height: 0;">
-    <filter id="fire">
-      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" result="noise" />
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
-      <feGaussianBlur stdDeviation="1" />
-      <feColorMatrix type="matrix" values="1 0 0 0 0.9  0 1 0 0 0.3  0 0 1 0 0  0 0 0 1 0" />
-    </filter>
-  </svg>
+<body>
+    <h1>FUTURISTIC BOT INTERFACE</h1>
+    <div id="camera"></div>
+    <div id="output">SYSTEM: Initializing...</div>
+    <button id="startBtn">ACTIVATE</button>
+    <button id="listenBtn">LISTEN</button>
+    
+    <script>
+        // Futuristic responses
+        const responses = [
+            "Scan complete. Human detected.",
+            "Vocal input processed.",
+            "Motion sensors activated.",
+            "System status: Nominal.",
+            "Alert: Energy signature detected.",
+            "Command acknowledged."
+        ];
 
-  <!-- Countdown Timer -->
-  <div id="countdown" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
-    <div class="text-white text-5xl font-extrabold">Launch in <span id="timer">5</span>s</div>
-  </div>
+        const output = document.getElementById('output');
+        const startBtn = document.getElementById('startBtn');
+        const listenBtn = document.getElementById('listenBtn');
+        let cameraActive = false;
+        let video;
 
-  <!-- Initial Page (Unchanged) -->
-  <div id="initial-page">
-    <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-6">
-      <div class="container mx-auto text-center">
-        <img src="https://via.placeholder.com/150x50?text=Your+Logo" alt="Your Brand Logo" class="mx-auto mb-4">
-        <h1 class="text-4xl font-bold">Your Brand Name</h1>
-        <p class="text-lg mt-2">Crafting unforgettable experiences</p>
-      </div>
-    </header>
-    <section class="py-12">
-      <div class="container mx-auto px-4 text-center">
-        <h2 class="text-3xl font-semibold text-gray-800 mb-6">About Your Brand</h2>
-        <p class="text-gray-600 max-w-2xl mx-auto">
-          Welcome to [Your Brand Name], where creativity meets excellence. We specialize in delivering top-tier solutions that make your vision shine. From stunning visuals to innovative strategies, we’ve got it all.
-        </p>
-      </div>
-    </section>
-    <section class="bg-white py-12">
-      <div class="container mx-auto px-4">
-        <h2 class="text-3xl font-semibold text-gray-800 text-center mb-8">Our Skills</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div class="text-center">
-            <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3-.672 3-1.5S13.657 8 12 8zm0 0c1.657 0 3 1.343 3 3v1c0 1.657-1.343 3-3 3s-3-1.343-3-3v-1c0-1.657 1.343-3 3-3zm0 0V5m0 14v-3"></path></svg>
-            </div>
-            <h3 class="text-xl font-medium text-gray-800">Graphic Design</h3>
-            <p class="text-gray-600 mt-2">Creating visually stunning designs that captivate and engage.</p>
-          </div>
-          <div class="text-center">
-            <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-            </div>
-            <h3 class="text-xl font-medium text-gray-800">Web Development</h3>
-            <p class="text-gray-600 mt-2">Building responsive, user-friendly websites that perform.</p>
-          </div>
-          <div class="text-center">
-            <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2"></path></svg>
-            </div>
-            <h3 class="text-xl font-medium text-gray-800">Marketing</h3>
-            <p class="text-gray-600 mt-2">Crafting campaigns that drive results and build your brand.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="py-12">
-      <div class="container mx-auto px-4">
-        <h2 class="text-3xl font-semibold text-gray-800 text-center mb-8">Our Work</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-            <img src="https://via.placeholder.com/400x300?text=Project+1" alt="Project 1" class="w-full h-48 object-cover">
-            <div class="p-4">
-              <h3 class="text-xl font-medium text-gray-800">Project 1</h3>
-              <p class="text-gray-600 mt-2">A stunning ad campaign that boosted client engagement.</p>
-            </div>
-          </div>
-          <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-            <img src="https://via.placeholder.com/400x300?text=Project+2" alt="Project 2" class="w-full h-48 object-cover">
-            <div class="p-4">
-              <h3 class="text-xl font-medium text-gray-800">Project 2</h3>
-              <p class="text-gray-600 mt-2">A sleek website redesign for maximum impact.</p>
-            </div>
-          </div>
-          <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-            <img src="https://via.placeholder.com/400x300?text=Project+3" alt="Project 3" class="w-full h-48 object-cover">
-            <div class="p-4">
-              <h3 class="text-xl font-medium text-gray-800">Project 3</h3>
-              <p class="text-gray-600 mt-2">A viral marketing video that broke the internet.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="bg-gray-800 text-white py-12">
-      <div class="container mx-auto px-4 text-center">
-        <h2 class="text-3xl font-semibold mb-6">Get in Touch</h2>
-        <p class="text-lg max-w-2xl mx-auto mb-6">
-          Ready to take your brand to the next level? Contact us today!
-        </p>
-        <a href="mailto:your.email@example.com" class="inline-block bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700">Contact Us</a>
-      </div>
-    </section>
-    <footer class="bg-gray-900 text-white py-6">
-      <div class="container mx-auto px-4 text-center">
-        <p>Ads made by AFU U</p>
-        <p class="mt-2">© 2025 [Your Brand Name]. All rights reserved.</p>
-      </div>
-    </footer>
-  </div>
-
-  <!-- Animated Showcase -->
-  <div id="showcase" class="hidden animated-bg text-white">
-    <canvas id="particles"></canvas>
-    <!-- Airplane Animation -->
-    <div id="airplane-container">
-      <svg width="250" height="100" viewBox="0 0 250 100">
-        <!-- Airplane -->
-        <path d="M30 50 L50 40 L70 50 L60 60 Z" fill="#fff" stroke="#d946ef" stroke-width="3" class="glow"/>
-        <path d="M50 40 L80 30 L90 50 L70 50 Z" fill="#fff" stroke="#d946ef" stroke-width="3" class="glow"/>
-        <!-- Banner -->
-        <rect x="100" y="40" width="120" height="25" rx="5" fill="#fff" stroke="#d946ef" stroke-width="3" class="glow"/>
-        <text x="105" y="58" font-family="Inter" font-size="14" font-weight="bold" fill="#d946ef">We Are The Best</text>
-      </svg>
-    </div>
-    <div id="showcase-content" class="relative">
-      <!-- Header Section -->
-      <section id="header-section" class="min-h-screen">
-        <div class="text-center max-w-4xl mx-auto px-4">
-          <img src="https://via.placeholder.com/250x80?text=Your+Logo+Here" alt="AFU Logo" class="mx-auto mb-8 glow flame-effect">
-          <h1 class="text-6xl font-extrabold tracking-tight">AFU – All For You</h1>
-          <p class="text-2xl mt-4 opacity-80">Best Creative Solutions, Unbeatable Prices ✨</p>
-        </div>
-      </section>
-
-      <!-- About Section -->
-      <section id="about-section" class="min-h-screen">
-        <div class="text-center max-w-4xl mx-auto px-4">
-          <h2 class="text-5xl font-bold mb-10 flame-effect">Why AFU?</h2>
-          <p class="text-xl opacity-90 leading-relaxed">
-            AFU – All For You crafts the best websites, graphics, and campaigns at prices small businesses love. Our hyper-personalized, all-in-one solutions transform chaotic branding into cohesive, growth-driving success without the hassle.
-          </p>
-        </div>
-      </section>
-
-      <!-- Services Section -->
-      <section id="services-section" class="min-h-screen bg-black bg-opacity-40">
-        <div class="container mx-auto px-4">
-          <h2 class="text-5xl font-bold text-center mb-16 flame-effect">Our Top Services</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3-.672 3-1.5S13.657 8 12 8zm0 0c1.657 0 3 1.343 3 3v1c0 1.657-1.343 3-3 3s-3-1.343-3-3v-1c0-1.657 1.343-3 3-3zm0 0V5m0 14v-3"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Graphic Design</h3>
-                <p class="text-purple-300 mt-4">Epic logos and branding that dominate.</p>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Website Building</h3>
-                <p class="text-purple-300 mt-4">Best sleek, fast sites at low cost.</p>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Video Editing</h3>
-                <p class="text-purple-300 mt-4">Viral reels that spark engagement.</p>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Social Media</h3>
-                <p class="text-purple-300 mt-4">Strategies that skyrocket reach.</p>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15.414a2 2 0 01-2.828 0l-4.586-4.586a2 2 0 010-2.828z"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Copywriting</h3>
-                <p class="text-purple-300 mt-4">Words that persuade and convert.</p>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="bg-purple-950 bg-opacity-70 rounded-xl p-6 glow flame-effect">
-                <svg class="w-12 h-12 text-purple-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <h3 class="text-2xl font-semibold text-purple-200">Content Creation</h3>
-                <p class="text-purple-300 mt-4">Trendy posts that captivate.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Portfolio Section -->
-      <section id="portfolio-section" class="min-h-screen">
-        <div class="container mx-auto px-4">
-          <h2 class="text-5xl font-bold text-center mb-16 flame-effect">Our Best Work</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="relative group">
-              <img src="https://via.placeholder.com/400x300?text=Logo+Design" alt="Logo Design" class="w-full h-64 object-cover rounded-xl glow">
-              <div class="absolute inset-0 bg-purple-950 bg-opacity-80 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl flex items-center justify-center flame-effect">
-                <div class="text-center">
-                  <h3 class="text-2xl font-semibold text-purple-200">Logo Design</h3>
-                  <p class="text-purple-300 mt-3">A bold identity that shines.</p>
-                </div>
-              </div>
-            </div>
-            <div class="relative group">
-              <img src="https://via.placeholder.com/400x300?text=Website+Build" alt="Website Build" class="w-full h-64 object-cover rounded-xl glow">
-              <div class="absolute inset-0 bg-purple-950 bg-opacity-80 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl flex items-center justify-center flame-effect">
-                <div class="text-center">
-                  <h3 class="text-2xl font-semibold text-purple-200">Website Build</h3>
-                  <p class="text-purple-300 mt-3">A sleek site that drives growth.</p>
-                </div>
-              </div>
-            </div>
-            <div class="relative group">
-              <img src="https://via.placeholder.com/400x300?text=Video+Ad" alt="Video Ad" class="w-full h-64 object-cover rounded-xl glow">
-              <div class="absolute inset-0 bg-purple-950 bg-opacity-80 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl flex items-center justify-center flame-effect">
-                <div class="text-center">
-                  <h3 class="text-2xl font-semibold text-purple-200">Video Ad</h3>
-                  <p class="text-purple-300 mt-3">A viral reel that lights up the web.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Contact Section -->
-      <section id="contact-section" class="min-h-screen bg-black bg-opacity-50">
-        <div class="text-center max-w-4xl mx-auto px-4">
-          <h2 class="text-5xl font-bold mb-10 flame-effect">Get The Best</h2>
-          <p class="text-xl opacity-90 leading-relaxed">
-            AFU delivers the best websites, graphics, and campaigns at unbeatable prices. DM or email for a free consultation and skyrocket your brand!
-          </p>
-          <div class="inline-block bg-purple-700 text-white py-4 px-10 rounded-full glow flame-effect text-xl font-semibold mt-6 animate-pulse">Contact Us</div>
-        </div>
-      </section>
-
-      <!-- Footer Section -->
-      <section id="footer-section" class="min-h-screen">
-        <div class="text-center">
-          <p class="text-purple-300 text-lg">Ads made by AFU U</p>
-          <p class="text-purple-400 mt-3">© 2025 AFU – All For You. All rights reserved.</p>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <script>
-    // Countdown Timer
-    let timeLeft = 5;
-    const timerElement = document.getElementById('timer');
-    const countdownElement = document.getElementById('countdown');
-    const initialPage = document.getElementById('initial-page');
-    const showcase = document.getElementById('showcase');
-    const mainBody = document.getElementById('main-body');
-
-    const countdown = setInterval(() => {
-      timeLeft--;
-      timerElement.textContent = timeLeft;
-      if (timeLeft <= 0) {
-        clearInterval(countdown);
-        gsap.to(countdownElement, {
-          opacity: 0,
-          duration: 0.5,
-          onComplete: () => {
-            countdownElement.remove();
-          }
+        // Camera setup
+        startBtn.addEventListener('click', async () => {
+            try {
+                video = document.createElement('video');
+                document.getElementById('camera').appendChild(video);
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.play();
+                cameraActive = true;
+                logMessage("SYSTEM: Visual sensors online");
+            } catch (err) {
+                logMessage(`ERROR: ${err.message}`);
+            }
         });
-        gsap.to(initialPage, {
-          opacity: 0,
-          duration: 0.5,
-          onComplete: () => {
-            initialPage.classList.add('hidden');
-            showcase.classList.remove('hidden');
-            mainBody.classList.remove('bg-gray-100');
-            gsap.fromTo(showcase, { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 1, ease: 'power3.out' });
-          }
+
+        // Voice recognition
+        listenBtn.addEventListener('click', () => {
+            if (!('webkitSpeechRecognition' in window)) {
+                logMessage("ERROR: Voice recognition not supported");
+                return;
+            }
+
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            
+            recognition.onstart = () => {
+                logMessage("SYSTEM: Listening...");
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                logMessage(`YOU: ${transcript}`);
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                speak(response);
+            };
+            
+            recognition.onerror = (event) => {
+                logMessage(`ERROR: ${event.error}`);
+            };
+            
+            recognition.start();
         });
-      }
-    }, 1000);
 
-    // Airplane Animation
-    gsap.to('#airplane-container', {
-      x: window.innerWidth + 250,
-      y: -50,
-      duration: 4,
-      ease: 'power1.inOut',
-      delay: 2,
-      onComplete: () => {
-        gsap.set('#airplane-container', { x: -250, y: 0 });
-      }
-    });
-
-    // Showcase Animation Timeline
-    const tl = gsap.timeline({ repeat: -1, repeatDelay: 3 });
-    tl.to('#showcase-content', { y: '-=100vh', duration: 2, ease: 'power2.inOut', delay: 3 }) // Header to About
-      .to('#showcase-content', { y: '-=100vh', duration: 2, ease: 'power2.inOut', delay: 3 }) // About to Services
-      .to('#showcase-content', { y: '-=100vh', duration: 2, ease: 'power2.inOut', delay: 3 }) // Services to Portfolio
-      .to('#showcase-content', { y: '-=100vh', duration: 2, ease: 'power2.inOut', delay: 3 }) // Portfolio to Contact
-      .to('#showcase-content', { y: '-=100vh', duration: 2, ease: 'power2.inOut', delay: 3 }) // Contact to Footer
-      .to('#showcase-content', { y: 0, duration: 2, ease: 'power2.inOut', delay: 3 }); // Reset to Header
-
-    // Enhanced Section Animations
-    gsap.utils.toArray('#showcase section').forEach((section, index) => {
-      gsap.from(section.querySelectorAll('h1, h2, p, img, div'), {
-        opacity: 0,
-        y: 50,
-        scale: 0.9,
-        rotation: 3,
-        duration: 1.2,
-        stagger: 0.15,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: section,
-          start: 'top center',
-          toggleActions: 'play none none reverse'
+        // Helper functions
+        function logMessage(msg) {
+            output.innerHTML += `<div>${msg}</div>`;
+            output.scrollTop = output.scrollHeight;
         }
-      });
-    });
 
-    // Flying Dot Background (Enhanced Particles)
-    const canvas = document.getElementById('particles');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const particlesArray = [];
-    const numberOfParticles = 200;
-
-    class Particle {
-      constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 3 + 1;
-        this.speedX = Math.random() * 1.5 - 0.75;
-        this.speedY = Math.random() * 1.5 - 0.75;
-        this.brightness = Math.random() * 0.6 + 0.4;
-      }
-      update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        if (this.size > 0.3) this.size -= 0.03;
-        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
-        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
-      }
-      draw() {
-        ctx.fillStyle = `rgba(217, 70, 239, ${this.brightness})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function initParticles() {
-      for (let i = 0; i < numberOfParticles; i++) {
-        particlesArray.push(new Particle());
-      }
-    }
-
-    function animateParticles() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < particlesArray.length; i++) {
-        particlesArray[i].update();
-        particlesArray[i].draw();
-        if (particlesArray[i].size <= 0.3) {
-          particlesArray.splice(i, 1);
-          particlesArray.push(new Particle());
-          i--;
+        function speak(text) {
+            logMessage(`BOT: ${text}`);
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
         }
-      }
-      requestAnimationFrame(animateParticles);
-    }
-
-    initParticles();
-    animateParticles();
-
-    // Resize canvas on window resize
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-  </script>
+    </script>
 </body>
 </html>
