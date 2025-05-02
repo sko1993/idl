@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NeuroVision Assistant</title>
+    <title>Silent Vision Assistant</title>
     <style>
         body {
             background: #000;
@@ -12,212 +12,118 @@
         }
         #container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 300px;
             gap: 20px;
             height: 90vh;
         }
-        #camera-feed {
-            border: 3px solid #0ff;
+        #camera-box {
+            border: 2px solid #0ff;
             position: relative;
         }
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        #status {
+        #console {
             border: 2px solid #f0f;
             padding: 15px;
             overflow-y: scroll;
         }
-        button {
-            background: #111;
-            color: #0ff;
-            border: 2px solid #0ff;
-            padding: 10px 20px;
-            margin: 5px;
-            cursor: pointer;
-        }
+        .user-msg { color: #0ff; }
+        .sys-msg { color: #0f0; }
+        .alert { color: #ff0; }
     </style>
 </head>
 <body>
-    <h1>NEUROVISION ASSISTANT v5.2</h1>
+    <h1>TEXT-ONLY VISION ASSISTANT</h1>
     <div id="container">
-        <div id="camera-feed">
+        <div id="camera-box">
             <video id="video" width="640" height="480" autoplay muted></video>
-            <canvas id="overlay"></canvas>
+            <canvas id="sensor-overlay"></canvas>
         </div>
-        <div id="status">
-            <button id="voiceBtn">START VOICE</button>
-            <div id="log"></div>
-        </div>
+        <div id="console"></div>
     </div>
 
-    <!-- AI Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0.5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 
-    <script>
-        let isListening = false;
-        let bodyNet, faceModel;
-        const AI_STATES = {
-            processing: false,
-            lastFace: null,
-            lastPose: null
-        };
+<script>
+const consoleOutput = document.getElementById('console');
+let lastDetection = {
+    face: null,
+    pose: null,
+    hands: null
+};
 
-        // Initialize Systems
-        async function init() {
-            try {
-                // Setup Camera
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
+// Initialize MediaPipe Holistic
+const holistic = new Holistic({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+});
 
-                // Load AI Models
-                bodyNet = await bodyPix.load();
-                await faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
-                await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
-                await faceapi.nets.faceExpressionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
+holistic.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    refineFaceLandmarks: true
+});
 
-                // Start Analysis Loop
-                video.addEventListener('play', () => {
-                    setInterval(async () => {
-                        await analyzeFrame();
-                    }, 100);
-                });
+// Camera setup
+const video = document.getElementById('video');
+const camera = new Camera(video, {
+    onFrame: async () => {
+        await holistic.send({image: video});
+    },
+    width: 640,
+    height: 480
+});
 
-                logMessage("SYSTEM: All neural networks online");
-            } catch (err) {
-                logMessage(`ERROR: ${err.message}`);
-            }
-        }
+holistic.onResults((results) => {
+    lastDetection = {
+        face: results.faceLandmarks,
+        pose: results.poseLandmarks,
+        hands: results.handedness
+    };
+    updateDisplay();
+});
 
-        // Real-Time Analysis
-        async function analyzeFrame() {
-            if (AI_STATES.processing) return;
-            AI_STATES.processing = true;
+// Text analysis
+function analyzeText(input) {
+    const responses = [
+        "Processing visual data...",
+        "Tracking "+ (lastDetection.face ? "1 face" : "no faces"),
+        "Posture analysis: "+ (lastDetection.pose ? "neutral" : "unknown"),
+        "Motion patterns: "+ (lastDetection.hands ? "hands detected" : "no hand activity")
+    ];
+    
+    return responses[Math.floor(Math.random()*responses.length)];
+}
 
-            try {
-                // Body Analysis
-                const body = await bodyNet.segmentPerson(document.getElementById('video'));
-                AI_STATES.lastPose = body;
+// Display updates
+function updateDisplay() {
+    const logEntry = `SYSTEM: Tracking ${
+        lastDetection.face ? 'face' : 'no face'
+    } | ${
+        lastDetection.pose ? 'body' : 'no body'
+    } | ${
+        lastDetection.hands ? lastDetection.hands.length+' hands' : 'no hands'
+    }`;
+    
+    addToConsole(logEntry, 'sys-msg');
+}
 
-                // Face Analysis
-                const faces = await faceapi.detectAllFaces(
-                    document.getElementById('video'), 
-                    new faceapi.TinyFaceDetectorOptions()
-                ).withFaceLandmarks().withFaceExpressions();
-                
-                if (faces.length > 0) {
-                    AI_STATES.lastFace = faces[0];
-                    drawFaceData(faces[0]);
-                }
+function addToConsole(text, className='sys-msg') {
+    consoleOutput.innerHTML += `<div class="${className}">${text}</div>`;
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+}
 
-                // Update Display
-                drawBodyHeatmap(body);
-            } finally {
-                AI_STATES.processing = false;
-            }
-        }
+// Start systems
+camera.start();
+addToConsole("SYSTEM: Initializing sensors...", 'alert');
 
-        // Voice Interaction
-        document.getElementById('voiceBtn').addEventListener('click', () => {
-            if (!isListening) startVoiceRecognition();
-        });
-
-        async function startVoiceRecognition() {
-            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = 'en-US';
-            
-            recognition.onresult = async (event) => {
-                const command = event.results[0][0].transcript;
-                logMessage(`YOU: ${command}`);
-                const response = await processCommand(command);
-                speak(response);
-            };
-
-            recognition.start();
-            isListening = true;
-            logMessage("SYSTEM: Listening...");
-        }
-
-        // AI Processing
-        async function processCommand(command) {
-            const context = {
-                face: AI_STATES.lastFace?.expressions,
-                body: AI_STATES.lastPose,
-                time: new Date().toLocaleTimeString()
-            };
-
-            // Smart Response Logic
-            if (command.toLowerCase().includes('how do i look')) {
-                const emotion = getDominantEmotion(context.face);
-                return `Facial analysis: ${emotion} detected. Posture score: ${Math.random()*100|0}/100`;
-            }
-
-            if (command.includes('tracking')) {
-                return `Tracking ${context.body.data.length} body points. ${context.face ? 'Facial landmarks locked.' : ''}`;
-            }
-
-            return generateSmartResponse(command, context);
-        }
-
-        function generateSmartResponse(command, context) {
-            const responses = [
-                `Processing: "${command}". Neural matrix engaged.`,
-                `Command received. ${context.face ? 'Emotional signature analyzed.' : ''}`,
-                `Biosensors indicate ${context.body.data.length > 0 ? 'active movement' : 'static position'}.`,
-                `Quantum response matrix activated for: ${command}`
-            ];
-            return responses[Math.random() * responses.length | 0];
-        }
-
-        // Utility Functions
-        function drawBodyHeatmap(body) {
-            const canvas = document.getElementById('overlay');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw body segmentation
-            body.allPoses.forEach(pose => {
-                pose.keypoints.forEach(kp => {
-                    if (kp.score > 0.5) {
-                        ctx.beginPath();
-                        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-                        ctx.fillStyle = '#0ff';
-                        ctx.fill();
-                    }
-                });
-            });
-        }
-
-        function drawFaceData(face) {
-            const canvas = document.getElementById('overlay');
-            faceapi.draw.drawFaceLandmarks(canvas, face);
-        }
-
-        function getDominantEmotion(expressions) {
-            return Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
-        }
-
-        function speak(text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9;
-            utterance.pitch = 0.8;
-            speechSynthesis.speak(utterance);
-            logMessage(`AI: ${text}`);
-        }
-
-        function logMessage(text) {
-            const log = document.getElementById('log');
-            log.innerHTML += `<div>${text}</div>`;
-            log.scrollTop = log.scrollHeight;
-        }
-
-        // Start System
-        window.onload = init;
-    </script>
+// Simulate user input
+setInterval(() => {
+    const fakeInput = "User presence detected";
+    addToConsole(`USER: ${fakeInput}`, 'user-msg');
+    const response = analyzeText(fakeInput);
+    addToConsole(`AI: ${response}`, 'sys-msg');
+}, 5000);
+</script>
 </body>
 </html>
