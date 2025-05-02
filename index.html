@@ -1,251 +1,201 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>NeuroScan AR System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Face Tracker 2.0</title>
     <style>
-        body { margin: 0; }
-        #ar-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+        }
+        #container {
+            position: relative;
             width: 100vw;
             height: 100vh;
+        }
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #face-box {
+            position: absolute;
+            border: 3px solid #ff0000;
+            display: none;
             pointer-events: none;
         }
-        .bio-panel {
+        #info-panel {
             position: fixed;
-            background: rgba(0,0,0,0.8);
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
             padding: 15px;
+            border: 2px solid #00ff00;
+            max-width: 300px;
         }
-        #face-analysis { top: 10px; right: 10px; width: 300px; }
-        #body-analysis { bottom: 10px; left: 10px; width: 400px; }
-        .emotion-display {
-            position: absolute;
-            background: rgba(255,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 0.9em;
+        .data-item {
+            margin: 5px 0;
         }
     </style>
 </head>
 <body>
-    <video id="camera-feed" style="display: none;"></video>
-    <canvas id="ar-overlay"></canvas>
-    
-    <div class="bio-panel" id="face-analysis">
-        <h2>Facial NeuroScan</h2>
-        <div id="face-data"></div>
+    <div id="container">
+        <video id="camera-feed" autoplay muted></video>
+        <div id="face-box"></div>
     </div>
-    
-    <div class="bio-panel" id="body-analysis">
-        <h2>Biometric Analysis</h2>
-        <div id="body-data"></div>
+    <div id="info-panel">
+        <h2>AI Analysis</h2>
+        <div class="data-item" id="age">Age: Calculating...</div>
+        <div class="data-item" id="mood">Mood: Neutral</div>
+        <div class="data-item" id="movement">Movement: 0%</div>
+        <div class="data-item" id="traits">Traits: Analyzing...</div>
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
 
 <script>
-const EMOTION_THRESHOLD = 0.4;
-const ETHNICITY_ESTIMATION = {
-    features: {
-        eastAsian: ['low noseBridge', 'epicanthicFold'],
-        southAsian: ['ovalFace', 'darkPigmentation'],
-        caucasian: ['narrowNose', 'deepSetEyes'],
-        african: ['broadNose', 'fullLips']
-    }
+// Configuration
+const config = {
+    detectionConfidence: 0.8,
+    analysisUpdateInterval: 1000,
+    movementSensitivity: 0.5
 };
 
-let holistic, faceModel;
-let emotionDisplay, faceOutline;
-let lastAnalysis = {
-    facial: {},
-    biometric: {}
+// State
+let lastPosition = { x: 0, y: 0 };
+let movementHistory = [];
+
+// Elements
+const video = document.getElementById('camera-feed');
+const faceBox = document.getElementById('face-box');
+const infoPanel = {
+    age: document.getElementById('age'),
+    mood: document.getElementById('mood'),
+    movement: document.getElementById('movement'),
+    traits: document.getElementById('traits')
 };
 
-// 1. Initialize AR Systems
-async function initAR() {
-    await setupCamera();
-    await loadModels();
-    init3DOverlay();
-    startAnalysisLoop();
-}
-
-// 2. Camera Setup
+// 1. Camera Setup
 async function setupCamera() {
-    const video = document.getElementById('camera-feed');
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    await new Promise(resolve => video.onloadedmetadata = resolve);
-    video.play();
-}
-
-// 3. Load AI Models
-async function loadModels() {
-    // Face/body tracking
-    holistic = new Holistic({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`});
-    holistic.setOptions({
-        modelComplexism: 2,
-        refineFaceLandmarks: true,
-        enableSegmentation: true
-    });
-    
-    // Emotion/feature analysis
-    await faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
-    await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
-    await faceapi.nets.faceExpressionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
-}
-
-// 4. 3D Overlay System
-function init3DOverlay() {
-    const canvas = document.getElementById('ar-overlay');
-    const renderer = new THREE.WebGLRenderer({ 
-        canvas: canvas,
-        alpha: true,
-        antialias: true 
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    
-    // Face outline geometry
-    faceOutline = new THREE.Line(
-        new THREE.BufferGeometry(),
-        new THREE.LineBasicMaterial({ color: 0x00ff00 })
-    );
-    
-    // Emotion display
-    emotionDisplay = new THREE.CSS2DObject(document.createElement('div'));
-    emotionDisplay.element.className = 'emotion-display';
-    
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    
-    // Animation loop
-    function animate() {
-        requestAnimationFrame(animate);
-        renderer.render(scene, camera);
-    }
-    animate();
-}
-
-// 5. Real-Time Analysis Loop
-async function startAnalysisLoop() {
-    const video = document.getElementById('camera-feed');
-    
-    while (true) {
-        const faces = await faceapi.detectAllFaces(video, 
-            new faceapi.TinyFaceDetectorOptions())
-            .withFaceLandmarks()
-            .withFaceExpressions();
-        
-        const holisticResults = await new Promise(resolve => {
-            holistic.onResults(resolve);
-            holistic.send({image: video});
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 } 
+            } 
         });
-
-        processFacialAnalysis(faces);
-        processBiometricData(holisticResults);
-        updateAROverlay(holisticResults, faces);
-        
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        video.srcObject = stream;
+        await new Promise(resolve => video.onloadedmetadata = resolve);
+        video.play();
+        return true;
+    } catch (error) {
+        showError("Camera Error: " + error.message);
+        return false;
     }
 }
 
-// 6. Advanced Facial Analysis
-function processFacialAnalysis(faces) {
-    if (faces.length > 0) {
-        const face = faces[0];
-        lastAnalysis.facial = {
-            emotion: getDominantEmotion(face.expressions),
-            symmetry: calculateFacialSymmetry(face.landmarks),
-            ethnicity: estimateEthnicity(face.landmarks),
-            features: analyzeFacialFeatures(face.landmarks)
-        };
-        
-        updateFaceDisplay();
+// 2. Face Detection
+const faceDetection = new FaceDetection.FaceDetection({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+});
+
+faceDetection.setOptions({
+    model: 'short',
+    minDetectionConfidence: config.detectionConfidence
+});
+
+faceDetection.onResults((results) => {
+    if (results.detections.length > 0) {
+        const detection = results.detections[0];
+        updateFaceBox(detection);
+        updateMovementAnalysis(detection);
+        updatePersonalityAnalysis(detection);
+    } else {
+        faceBox.style.display = 'none';
     }
+});
+
+// 3. Face Tracking
+function updateFaceBox(detection) {
+    const box = detection.boundingBox;
+    const width = (box.width * 100) + '%';
+    const height = (box.height * 100) + '%';
+    const left = (box.xCenter * 100 - box.width * 50) + '%';
+    const top = (box.yCenter * 100 - box.height * 50) + '%';
+
+    faceBox.style.width = width;
+    faceBox.style.height = height;
+    faceBox.style.left = left;
+    faceBox.style.top = top;
+    faceBox.style.display = 'block';
 }
 
-// 7. Biometric Body Analysis
-function processBiometricData(results) {
-    lastAnalysis.biometric = {
-        posture: analyzePosture(results.poseLandmarks),
-        gestures: detectGestures(results),
-        vitals: estimateVitals(results)
-    };
-    updateBiometricDisplay();
-}
-
-// 8. AR Overlay Updates
-function updateAROverlay(holisticResults, faces) {
-    // Update face outline
-    if (faces.length > 0) {
-        const landmarks = faces[0].landmarks.positions;
-        const points = landmarks.map(l => new THREE.Vector3(
-            (l._x / video.videoWidth - 0.5) * 10,
-            (0.5 - l._y / video.videoHeight) * 10,
-            0
-        ));
-        faceOutline.geometry.setFromPoints(points);
-    }
-    
-    // Update emotion display
-    emotionDisplay.position.set(
-        window.innerWidth/2,
-        window.innerHeight/2 - 100,
-        0
-    );
-    emotionDisplay.element.textContent = lastAnalysis.facial.emotion.toUpperCase();
-}
-
-// 9. Analysis Utilities
-function getDominantEmotion(expressions) {
-    return Object.entries(expressions).reduce((a,b) => a[1] > b[1] ? a : b)[0];
-}
-
-function estimateEthnicity(landmarks) {
-    // Advanced feature analysis (simplified)
-    const features = {
-        noseWidth: landmarks.getNose().width,
-        eyeShape: calculateEyeShape(landmarks),
-        faceStructure: analyzeFaceShape(landmarks)
+// 4. Movement Analysis
+function updateMovementAnalysis(detection) {
+    const currentPos = { 
+        x: detection.boundingBox.xCenter, 
+        y: detection.boundingBox.yCenter 
     };
     
-    // Compare with ethnic feature database
-    return Object.entries(ETHNICITY_ESTIMATION.features).reduce((closest, [group, traits]) => {
-        const matchScore = traits.filter(t => features[t]).length;
-        return matchScore > closest.score ? {group, score: matchScore} : closest;
-    }, {group: 'unknown', score: 0}).group;
+    const deltaX = currentPos.x - lastPosition.x;
+    const deltaY = currentPos.y - lastPosition.y;
+    const movement = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+    
+    movementHistory.push(movement);
+    if (movementHistory.length > 10) movementHistory.shift();
+    
+    const avgMovement = movementHistory.reduce((a, b) => a + b, 0) / movementHistory.length;
+    const movementPercent = Math.min(100, Math.round(avgMovement * 1000));
+    
+    infoPanel.movement.textContent = `Movement: ${movementPercent}%`;
+    lastPosition = currentPos;
 }
 
-// 10. UI Updates
-function updateFaceDisplay() {
-    const data = lastAnalysis.facial;
-    document.getElementById('face-data').innerHTML = `
-        <strong>Emotion:</strong> ${data.emotion}<br>
-        <strong>Ethnic Estimate:</strong> ${data.ethnicity}<br>
-        <strong>Facial Symmetry:</strong> ${(data.symmetry * 100).toFixed(1)}%<br>
-        <strong>Distinct Features:</strong> ${data.features.join(', ')}
-    `;
+// 5. Personality Analysis
+function updatePersonalityAnalysis(detection) {
+    // Simulated AI analysis (would be more complex in real system)
+    const traits = detection.landmarks ? [
+        'Tech-Savvy',
+        'Observant',
+        'Detail-Oriented',
+        'Curious'
+    ] : ['Analytical'];
+    
+    const ageEstimate = 20 + Math.round(detection.boundingBox.width * 50);
+    const mood = detection.landmarks ? 'Focused' : 'Neutral';
+    
+    infoPanel.age.textContent = `Age Estimate: ${ageEstimate}±3`;
+    infoPanel.mood.textContent = `Mood: ${mood}`;
+    infoPanel.traits.textContent = `Traits: ${traits.join(', ')}`;
 }
 
-function updateBiometricDisplay() {
-    const data = lastAnalysis.biometric;
-    document.getElementById('body-data').innerHTML = `
-        <strong>Posture Rating:</strong> ${data.posture.grade}<br>
-        <strong>Detected Gestures:</strong> ${data.gestures.join(', ')}<br>
-        <strong>Estimated Heart Rate:</strong> ${data.vitals.hr}bpm<br>
-        <strong>Stress Level:</strong> ${data.vitals.stress}%
-    `;
+// 6. Error Handling
+function showError(message) {
+    infoPanel.innerHTML = `<div style="color: #ff0000">${message}</div>`;
 }
 
-// Initialize System
-initAR().catch(console.error);
+// 7. Initialize System
+async function main() {
+    const cameraSuccess = await setupCamera();
+    if (!cameraSuccess) return;
+
+    const camera = new Camera(video, {
+        onFrame: async () => {
+            await faceDetection.send({ image: video });
+        },
+        width: video.videoWidth,
+        height: video.videoHeight
+    });
+    camera.start();
+}
+
+// Start the system
+main();
 </script>
 </body>
 </html>
