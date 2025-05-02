@@ -1,216 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Neural Hologram Interface</title>
+    <title>Visible Camera + 3D Tracking</title>
     <style>
         body { 
             margin: 0;
             overflow: hidden;
             background: #000;
         }
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-        #stats {
+        #hud {
             position: fixed;
-            top: 10px;
-            left: 10px;
+            top: 20px;
+            left: 20px;
             color: #0f0;
             font-family: 'Courier New', monospace;
             z-index: 100;
         }
-        #console {
+        #camera-preview {
             position: fixed;
-            bottom: 10px;
-            right: 10px;
-            color: #0ff;
-            font-family: 'Courier New', monospace;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border: 1px solid #0ff;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            border: 2px solid #0ff;
+            z-index: 100;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
         }
     </style>
 </head>
 <body>
-    <div id="container">
-        <canvas id="hologram"></canvas>
-    </div>
-    <div id="stats"></div>
-    <div id="console"></div>
+    <div id="hud">TRACKING ACTIVE</div>
+    <video id="camera-preview"></video>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-let scene, camera, renderer, holomodel;
-let holistic, videoElement;
-const landmarks = {
-    face: [],
-    pose: [],
-    hands: []
-};
+// 1. Setup Visible Camera Feed
+const videoElement = document.getElementById('camera-preview');
+videoElement.muted = true;
 
-// 1. Three.js Setup
-function initThree() {
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('hologram') });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000);
-    
-    // Hologram material
-    const hologramMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.7,
-        wireframe: true
-    });
-    
-    // Create body mesh
-    holomodel = new THREE.Group();
-    scene.add(holomodel);
-    
-    // Add grid helper
-    const grid = new THREE.GridHelper(100, 20, 0x00ff00, 0x003300);
-    scene.add(grid);
-    
-    camera.position.z = 5;
-    animate();
-}
+// 2. Initialize Tracking
+const holistic = new Holistic({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+});
 
-// 2. MediaPipe Holistic Setup
-async function setupBodyTracking() {
-    videoElement = document.createElement('video');
-    document.body.appendChild(videoElement);
-    
-    holistic = new Holistic({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-    });
+holistic.setOptions({
+    modelComplexity: 2,
+    refineFaceLandmarks: true
+});
 
-    holistic.setOptions({
-        modelComplexity: 2,
-        refineFaceLandmarks: true,
-        enableSegmentation: false
-    });
+// 3. Start Camera
+const camera = new Camera(videoElement, {
+    onFrame: async () => {
+        await holistic.send({image: videoElement});
+    },
+    width: 640,
+    height: 480
+});
 
-    holistic.onResults(processResults);
+camera.start().then(() => {
+    videoElement.style.display = 'block';
+}).catch(error => {
+    document.getElementById('hud').innerHTML = `CAMERA ERROR: ${error.message}`;
+});
 
-    const camera = new Camera(videoElement, {
-        onFrame: async () => {
-            await holistic.send({image: videoElement});
-        },
-        width: 640,
-        height: 480
-    });
-    camera.start();
-}
-
-// 3. Process Tracking Data
-function processResults(results) {
-    landmarks.face = results.faceLandmarks || [];
-    landmarks.pose = results.poseLandmarks || [];
-    landmarks.hands = results.handedness || [];
-    
-    updateHologram();
-    updateConsole();
-}
-
-// 4. Update 3D Model
-function updateHologram() {
-    // Clear previous model
-    holomodel.children = [];
-    
-    // Create face mesh
-    if(landmarks.face.length > 0) {
-        const faceGeometry = new THREE.BufferGeometry();
-        const vertices = [];
-        
-        landmarks.face.forEach(lm => {
-            vertices.push(
-                (lm.x - 0.5) * 10,
-                (0.5 - lm.y) * 10,
-                (lm.z || 0) * 5
-            );
-        });
-        
-        faceGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        const faceMesh = new THREE.Line(
-            faceGeometry,
-            new THREE.LineBasicMaterial({ color: 0xff00ff })
-        );
-        holomodel.add(faceMesh);
-    }
-    
-    // Create body skeleton
-    if(landmarks.pose.length > 0) {
-        const bodyGeometry = new THREE.BufferGeometry();
-        const bodyVertices = [];
-        
-        landmarks.pose.forEach(lm => {
-            bodyVertices.push(
-                (lm.x - 0.5) * 10,
-                (0.5 - lm.y) * 10,
-                (lm.z || 0) * 5
-            );
-        });
-        
-        bodyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(bodyVertices, 3));
-        const bodyPoints = new THREE.Points(
-            bodyGeometry,
-            new THREE.PointsMaterial({ color: 0x00ffff, size: 0.1 })
-        );
-        holomodel.add(bodyPoints);
-    }
-}
-
-// 5. Animation Loop
-function animate() {
-    requestAnimationFrame(animate);
-    
-    // Rotate model
-    if(holomodel) {
-        holomodel.rotation.y += 0.005;
-        holomodel.position.y = Math.sin(Date.now() * 0.002) * 0.5;
-    }
-    
-    renderer.render(scene, camera);
-    
-    // Update stats
-    document.getElementById('stats').innerHTML = `
-        FPS: ${Math.round(THREE.MathUtils.seededRandom() * 30 + 60)}<br>
-        Tracked Points: ${landmarks.face.length + landmarks.pose.length}
+// 4. Show Tracking Results
+holistic.onResults(results => {
+    document.getElementById('hud').innerHTML = `
+        FACIAL POINTS: ${results.faceLandmarks?.length || 0}<br>
+        BODY POINTS: ${results.poseLandmarks?.length || 0}<br>
+        HANDS: ${results.handedness?.length || 0}
     `;
-}
+});
 
-// 6. Console Updates
-function updateConsole() {
-    const faceStatus = landmarks.face.length > 0 ? 
-        `Facial Nodes: ${landmarks.face.length}` : 'No face detected';
-    const poseStatus = landmarks.pose.length > 0 ? 
-        `Body Points: ${landmarks.pose.length}` : 'No body detected';
-    
-    document.getElementById('console').innerHTML = `
-        NEURAL TRACKING SYSTEM<br>
-        -----------------------<br>
-        ${faceStatus}<br>
-        ${poseStatus}<br>
-        Hands: ${landmarks.hands.length}<br>
-        System Time: ${new Date().toLocaleTimeString()}
-    `;
-}
-
-// Initialize
-initThree();
-setupBodyTracking();
-
-// Window resize handler
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+// 5. Make Camera Feed Visible
+videoElement.addEventListener('loadeddata', () => {
+    videoElement.play();
 });
 </script>
 </body>
