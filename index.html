@@ -1,38 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Visible Camera + 3D Tracking</title>
+    <title>Biomech Judge 9000</title>
     <style>
-        body { 
-            margin: 0;
-            overflow: hidden;
-            background: #000;
-        }
+        body { margin: 0; }
         #hud {
             position: fixed;
             top: 20px;
             left: 20px;
-            color: #0f0;
+            color: #ff5555;
             font-family: 'Courier New', monospace;
             z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border: 2px solid #ff5555;
         }
         #camera-preview {
             position: fixed;
             bottom: 20px;
             right: 20px;
             width: 240px;
-            border: 2px solid #0ff;
-            z-index: 100;
-        }
-        canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
+            border: 2px solid #55ff55;
         }
     </style>
 </head>
 <body>
-    <div id="hud">TRACKING ACTIVE</div>
+    <div id="hud">INITIALIZING JUDGEMENT PROTOCOLS...</div>
     <video id="camera-preview"></video>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -40,47 +33,160 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-// 1. Setup Visible Camera Feed
-const videoElement = document.getElementById('camera-preview');
-videoElement.muted = true;
+const JUDGEMENTS = {
+    thumbsUp: ["Basic approval gesture detected", "Primitive social signaling observed", "Digital extension indicates tribal affiliation"],
+    smile: ["Facial contraction suggests forced positivity", "Zygomatic activity exceeding normal parameters", "Dopamine simulation attempt recognized"],
+    posture: ["Spinal alignment suboptimal", "Gravitational defiance inefficient", "Meatbag structural integrity compromised"]
+};
 
-// 2. Initialize Tracking
-const holistic = new Holistic({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-});
+let scene, camera, renderer, skeleton;
+let holistic, videoElement;
+const jointSize = 0.05;
+const boneColor = 0xff4444;
 
-holistic.setOptions({
-    modelComplexity: 2,
-    refineFaceLandmarks: true
-});
+// 1. Initialize 3D Biomech Model
+function initBiomechModel() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-// 3. Start Camera
-const camera = new Camera(videoElement, {
-    onFrame: async () => {
-        await holistic.send({image: videoElement});
-    },
-    width: 640,
-    height: 480
-});
+    // Skeletal framework
+    skeleton = new THREE.Group();
+    scene.add(skeleton);
 
-camera.start().then(() => {
-    videoElement.style.display = 'block';
-}).catch(error => {
-    document.getElementById('hud').innerHTML = `CAMERA ERROR: ${error.message}`;
-});
+    // Add coordinate system
+    const axes = new THREE.AxesHelper(1);
+    scene.add(axes);
+    camera.position.z = 5;
+}
 
-// 4. Show Tracking Results
-holistic.onResults(results => {
-    document.getElementById('hud').innerHTML = `
-        FACIAL POINTS: ${results.faceLandmarks?.length || 0}<br>
-        BODY POINTS: ${results.poseLandmarks?.length || 0}<br>
-        HANDS: ${results.handedness?.length || 0}
-    `;
-});
+// 2. Body Tracking Setup
+async function setupBodyTracking() {
+    videoElement = document.getElementById('camera-preview');
+    holistic = new Holistic({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+    });
 
-// 5. Make Camera Feed Visible
-videoElement.addEventListener('loadeddata', () => {
-    videoElement.play();
+    holistic.setOptions({
+        modelComplexity: 2,
+        refineFaceLandmarks: true,
+        enableSegmentation: true
+    });
+
+    holistic.onResults(processBiomechData);
+
+    const cameraFeed = new Camera(videoElement, {
+        onFrame: async () => await holistic.send({image: videoElement}),
+        width: 640,
+        height: 480
+    });
+    cameraFeed.start();
+}
+
+// 3. Process Biological Data
+function processBiomechData(results) {
+    updateBiomechModel(results);
+    analyzeMovements(results);
+    judgePosture(results);
+}
+
+// 4. Update 3D Model
+function updateBiomechModel({poseLandmarks, faceLandmarks}) {
+    skeleton.children = [];
+
+    // Create joints
+    if(poseLandmarks) {
+        poseLandmarks.forEach((landmark, i) => {
+            const joint = new THREE.Mesh(
+                new THREE.SphereGeometry(jointSize),
+                new THREE.MeshBasicMaterial({color: 0x55ff55})
+            );
+            joint.position.set(
+                (landmark.x - 0.5) * 10,
+                (0.5 - landmark.y) * 10,
+                (landmark.z || 0) * 5
+            );
+            skeleton.add(joint);
+        });
+    }
+
+    // Create facial mesh
+    if(faceLandmarks) {
+        const faceGeometry = new THREE.BufferGeometry();
+        const vertices = faceLandmarks.map(lm => new THREE.Vector3(
+            (lm.x - 0.5) * 10,
+            (0.5 - lm.y) * 10,
+            (lm.z || 0) * 5
+        ));
+        faceGeometry.setFromPoints(vertices);
+        
+        const faceMesh = new THREE.Line(
+            faceGeometry,
+            new THREE.LineBasicMaterial({color: 0xff5555})
+        );
+        skeleton.add(faceMesh);
+    }
+}
+
+// 5. Movement Analysis
+function analyzeMovements({poseLandmarks, handedness}) {
+    let judgement = "";
+    
+    // Detect thumbs up
+    if(poseLandmarks && poseLandmarks[4] && poseLandmarks[8]) {
+        const thumbTip = poseLandmarks[4];
+        const indexTip = poseLandmarks[8];
+        if(thumbTip.y < indexTip.y) {
+            judgement = JUDGEMENTS.thumbsUp[Math.floor(Math.random()*3)];
+        }
+    }
+
+    // Detect smile (simplified)
+    if(faceLandmarks && faceLandmarks[61] && faceLandmarks[291]) {
+        const leftMouth = faceLandmarks[61];
+        const rightMouth = faceLandmarks[291];
+        if(leftMouth.y < faceLandmarks[0].y && rightMouth.y < faceLandmarks[0].y) {
+            judgement += " | " + JUDGEMENTS.smile[Math.floor(Math.random()*3)];
+        }
+    }
+
+    if(judgement) document.getElementById('hud').innerHTML = judgement;
+}
+
+// 6. Posture Judgement
+function judgePosture({poseLandmarks}) {
+    if(!poseLandmarks) return;
+    
+    const leftShoulder = poseLandmarks[11];
+    const rightShoulder = poseLandmarks[12];
+    if(leftShoulder && rightShoulder) {
+        const shoulderSlope = Math.abs(leftShoulder.y - rightShoulder.y);
+        if(shoulderSlope > 0.1) {
+            document.getElementById('hud').innerHTML += "<br>" + 
+                JUDGEMENTS.posture[Math.floor(Math.random()*3)];
+        }
+    }
+}
+
+// Initialize Systems
+initBiomechModel();
+setupBodyTracking();
+
+// Animation Loop
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    if(skeleton) skeleton.rotation.y += 0.005;
+}
+animate();
+
+// Window Resize Handler
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
