@@ -1,201 +1,436 @@
+# Sobriety Tracker with Motivational Quotes
+
+Here's a modern, smooth-looking sobriety tracker web app you can host on GitHub Pages. It includes:
+- A clean counter showing days sober
+- Reset functionality
+- Add custom trackers
+- Motivational quotes from Andrew and Tristan Tate
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Tracker 2.0</title>
+    <title>Sobriety Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
+        :root {
+            --primary: #6366f1;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --success: #10b981;
+            --danger: #ef4444;
+            --card-bg: rgba(255, 255, 255, 0.9);
+        }
+        
+        * {
             margin: 0;
-            overflow: hidden;
-            background: #000;
-            font-family: 'Courier New', monospace;
-            color: #00ff00;
+            padding: 0;
+            box-sizing: border-box;
         }
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: var(--dark);
         }
-        #camera-feed {
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            font-weight: 300;
+        }
+        
+        .tracker-card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .tracker-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .tracker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tracker-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .counter {
+            font-size: 4rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 2rem 0;
+            color: var(--primary);
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .reset-btn {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        .add-btn {
+            background-color: var(--success);
+            color: white;
+        }
+        
+        .add-btn:hover {
+            background-color: #059669;
+            transform: translateY(-2px);
+        }
+        
+        .quote-container {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 0.5rem;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .quote {
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+        
+        .author {
+            text-align: right;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-        }
-        #face-box {
-            position: absolute;
-            border: 3px solid #ff0000;
-            display: none;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
             pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
         }
-        #info-panel {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border: 2px solid #00ff00;
-            max-width: 300px;
+        
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
         }
-        .data-item {
-            margin: 5px 0;
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+        
+        .modal h2 {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-family: inherit;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .close-btn {
+            background-color: #64748b;
+            color: white;
+        }
+        
+        .save-btn {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .counter {
+                font-size: 3rem;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="container">
-        <video id="camera-feed" autoplay muted></video>
-        <div id="face-box"></div>
+    <div class="container">
+        <header>
+            <h1>Sobriety Tracker</h1>
+            <p class="subtitle">Every day counts. Stay disciplined.</p>
+        </header>
+        
+        <div class="tracker-card">
+            <div class="tracker-header">
+                <div class="tracker-name" id="tracker-name">Sobriety</div>
+            </div>
+            
+            <div class="counter" id="counter">0</div>
+            
+            <div class="buttons">
+                <button class="reset-btn" id="reset-btn">Reset Counter</button>
+                <button class="add-btn" id="add-tracker-btn">Add New Tracker</button>
+            </div>
+            
+            <div class="quote-container" id="quote-container">
+                <p class="quote" id="quote">Discipline is the bridge between goals and accomplishment.</p>
+                <p class="author" id="author">Andrew Tate</p>
+            </div>
+        </div>
     </div>
-    <div id="info-panel">
-        <h2>AI Analysis</h2>
-        <div class="data-item" id="age">Age: Calculating...</div>
-        <div class="data-item" id="mood">Mood: Neutral</div>
-        <div class="data-item" id="movement">Movement: 0%</div>
-        <div class="data-item" id="traits">Traits: Analyzing...</div>
+    
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2>Add New Tracker</h2>
+            <div class="form-group">
+                <label for="new-tracker-name">Tracker Name</label>
+                <input type="text" id="new-tracker-name" placeholder="e.g. Gym Streak, No Smoking">
+            </div>
+            <div class="modal-buttons">
+                <button class="close-btn" id="close-btn">Close</button>
+                <button class="save-btn" id="save-btn">Save Tracker</button>
+            </div>
+        </div>
     </div>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-
-<script>
-// Configuration
-const config = {
-    detectionConfidence: 0.8,
-    analysisUpdateInterval: 1000,
-    movementSensitivity: 0.5
-};
-
-// State
-let lastPosition = { x: 0, y: 0 };
-let movementHistory = [];
-
-// Elements
-const video = document.getElementById('camera-feed');
-const faceBox = document.getElementById('face-box');
-const infoPanel = {
-    age: document.getElementById('age'),
-    mood: document.getElementById('mood'),
-    movement: document.getElementById('movement'),
-    traits: document.getElementById('traits')
-};
-
-// 1. Camera Setup
-async function setupCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 1280 }, 
-                height: { ideal: 720 } 
-            } 
+    
+    <script>
+        // Quotes database
+        const quotes = [
+            {
+                quote: "Discipline is the bridge between goals and accomplishment.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "Your mind must be stronger than your feelings.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "Freedom will only come when you no longer trade your time for money.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "The man who does what he must, regardless of what he feels, will always be the master of his fate.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "Winners focus on winning. Losers focus on winners.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "The temporary satisfaction of quitting is outweighed by the eternal suffering of being a nobody.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "Arrogance is the camouflage of insecurity.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "You are exactly where you deserve to be. Change who you are and you will change how you live.",
+                author: "Andrew Tate"
+            },
+            {
+                quote: "Success is not about luck. Success is about work. Success is when opportunity meets preparation.",
+                author: "Tristan Tate"
+            },
+            {
+                quote: "The only way to escape mediocrity is to take massive action.",
+                author: "Tristan Tate"
+            },
+            {
+                quote: "You can have results or excuses. Not both.",
+                author: "Tristan Tate"
+            },
+            {
+                quote: "The pain of discipline weighs ounces, the pain of regret weighs tons.",
+                author: "Tristan Tate"
+            }
+        ];
+        
+        // DOM elements
+        const counterEl = document.getElementById('counter');
+        const resetBtn = document.getElementById('reset-btn');
+        const addTrackerBtn = document.getElementById('add-tracker-btn');
+        const trackerNameEl = document.getElementById('tracker-name');
+        const quoteEl = document.getElementById('quote');
+        const authorEl = document.getElementById('author');
+        const quoteContainer = document.getElementById('quote-container');
+        const modal = document.getElementById('modal');
+        const closeBtn = document.getElementById('close-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const newTrackerName = document.getElementById('new-tracker-name');
+        
+        // State
+        let startDate = localStorage.getItem('startDate');
+        let currentTracker = localStorage.getItem('currentTracker') || 'Sobriety';
+        let trackers = JSON.parse(localStorage.getItem('trackers')) || [];
+        
+        // Initialize
+        if (!startDate) {
+            startDate = new Date().toISOString();
+            localStorage.setItem('startDate', startDate);
+        }
+        
+        trackerNameEl.textContent = currentTracker;
+        updateCounter();
+        showRandomQuote();
+        
+        // Update counter display
+        function updateCounter() {
+            const now = new Date();
+            const start = new Date(startDate);
+            const diffTime = now - start;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            counterEl.textContent = diffDays;
+        }
+        
+        // Show random quote
+        function showRandomQuote() {
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            quoteEl.textContent = randomQuote.quote;
+            authorEl.textContent = randomQuote.author;
+        }
+        
+        // Event listeners
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset your counter?')) {
+                startDate = new Date().toISOString();
+                localStorage.setItem('startDate', startDate);
+                updateCounter();
+                showRandomQuote();
+            }
         });
-        video.srcObject = stream;
-        await new Promise(resolve => video.onloadedmetadata = resolve);
-        video.play();
-        return true;
-    } catch (error) {
-        showError("Camera Error: " + error.message);
-        return false;
-    }
-}
-
-// 2. Face Detection
-const faceDetection = new FaceDetection.FaceDetection({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
-});
-
-faceDetection.setOptions({
-    model: 'short',
-    minDetectionConfidence: config.detectionConfidence
-});
-
-faceDetection.onResults((results) => {
-    if (results.detections.length > 0) {
-        const detection = results.detections[0];
-        updateFaceBox(detection);
-        updateMovementAnalysis(detection);
-        updatePersonalityAnalysis(detection);
-    } else {
-        faceBox.style.display = 'none';
-    }
-});
-
-// 3. Face Tracking
-function updateFaceBox(detection) {
-    const box = detection.boundingBox;
-    const width = (box.width * 100) + '%';
-    const height = (box.height * 100) + '%';
-    const left = (box.xCenter * 100 - box.width * 50) + '%';
-    const top = (box.yCenter * 100 - box.height * 50) + '%';
-
-    faceBox.style.width = width;
-    faceBox.style.height = height;
-    faceBox.style.left = left;
-    faceBox.style.top = top;
-    faceBox.style.display = 'block';
-}
-
-// 4. Movement Analysis
-function updateMovementAnalysis(detection) {
-    const currentPos = { 
-        x: detection.boundingBox.xCenter, 
-        y: detection.boundingBox.yCenter 
-    };
-    
-    const deltaX = currentPos.x - lastPosition.x;
-    const deltaY = currentPos.y - lastPosition.y;
-    const movement = Math.sqrt(deltaX ** 2 + deltaY ** 2);
-    
-    movementHistory.push(movement);
-    if (movementHistory.length > 10) movementHistory.shift();
-    
-    const avgMovement = movementHistory.reduce((a, b) => a + b, 0) / movementHistory.length;
-    const movementPercent = Math.min(100, Math.round(avgMovement * 1000));
-    
-    infoPanel.movement.textContent = `Movement: ${movementPercent}%`;
-    lastPosition = currentPos;
-}
-
-// 5. Personality Analysis
-function updatePersonalityAnalysis(detection) {
-    // Simulated AI analysis (would be more complex in real system)
-    const traits = detection.landmarks ? [
-        'Tech-Savvy',
-        'Observant',
-        'Detail-Oriented',
-        'Curious'
-    ] : ['Analytical'];
-    
-    const ageEstimate = 20 + Math.round(detection.boundingBox.width * 50);
-    const mood = detection.landmarks ? 'Focused' : 'Neutral';
-    
-    infoPanel.age.textContent = `Age Estimate: ${ageEstimate}±3`;
-    infoPanel.mood.textContent = `Mood: ${mood}`;
-    infoPanel.traits.textContent = `Traits: ${traits.join(', ')}`;
-}
-
-// 6. Error Handling
-function showError(message) {
-    infoPanel.innerHTML = `<div style="color: #ff0000">${message}</div>`;
-}
-
-// 7. Initialize System
-async function main() {
-    const cameraSuccess = await setupCamera();
-    if (!cameraSuccess) return;
-
-    const camera = new Camera(video, {
-        onFrame: async () => {
-            await faceDetection.send({ image: video });
-        },
-        width: video.videoWidth,
-        height: video.videoHeight
-    });
-    camera.start();
-}
-
-// Start the system
-main();
-</script>
+        
+        addTrackerBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+        
+        saveBtn.addEventListener('click', () => {
+            const name = newTrackerName.value.trim();
+            if (name) {
+                trackers.push(name);
+                localStorage.setItem('trackers', JSON.stringify(trackers));
+                currentTracker = name;
+                localStorage.setItem('currentTracker', name);
+                trackerNameEl.textContent = name;
+                modal.classList.remove('active');
+                newTrackerName.value = '';
+                showRandomQuote();
+            }
+        });
+        
+        // Change quote every 10 seconds
+        setInterval(showRandomQuote, 10000);
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+    </script>
 </body>
 </html>
+```
+
+## How to Use This Code
+
+1. Create a new repository on GitHub
+2. Add this code as `index.html`
+3. Enable GitHub Pages in your repository settings
+4. Your sobriety tracker will be live at your GitHub Pages URL
+
+## Features
+
+- **Clean, modern design** with smooth animations and gradients
+- **Automatic day counter** that starts from when you first open the page
+- **Reset button** to start over if needed
+- **Add custom trackers** for different habits or goals
+- **Motivational quotes** from Andrew and Tristan Tate that rotate automatically
+- **Persistent storage** using localStorage so your data stays between sessions
+
+The counter will automatically start counting from the first day you open the page. You can customize the name of your tracker through the "Add New Tracker" button.
